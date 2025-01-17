@@ -3,10 +3,15 @@ const bcrypt = require("bcrypt");
 const connectDB = require("./config/database")
 const { validateSignupData } = require("./utils/validation")
 const User = require("./models/user");
-const user = require("./models/user");
-const app = express();
+const { UserAuth } = require("./middlewares/auth");
+const jwt = require('jsonwebtoken');
+const cookieParser = require("cookie-parser");
 
-app.use(express.json())
+
+const app = express();
+app.use(express.json());
+app.use(cookieParser());
+
 
 app.post("/signup", async (req, res) => {
     try {
@@ -29,10 +34,6 @@ app.post("/signup", async (req, res) => {
     }
 
 })
-
-
-
-
 app.post("/login", async (req, res) => {
     try {
         const { emailId, password } = req.body
@@ -43,6 +44,18 @@ app.post("/login", async (req, res) => {
 
         const isPasswordValid = await bcrypt.compare(password, user.password)
         if (isPasswordValid) {
+
+            // create a JWT Token
+            const token = await jwt.sign({ _id: user._id }, "DEV@Tinder$790", {
+                expiresIn: "1d",
+            });
+
+
+            // add the Token to cookie $ send the response back to the user 
+            res.cookie("token", token, {
+                expires: new Date(Date.now()+8 *3600000)
+            });
+
             res.send("Login Successfully")
         } else {
             throw new Error("Password not correct")
@@ -51,6 +64,22 @@ app.post("/login", async (req, res) => {
     } catch (err) {
         res.status(400).send("Error : " + err.message);
     }
+})
+
+app.get("/profile", UserAuth, async (req, res) => {
+    try {
+
+        const user = req.user
+        res.send(user);
+    } catch (err) {
+        res.status(400).send("Error : " + err.message);
+    }
+})
+
+app.post("/sendConnectionRequest", UserAuth, async (req, res) => {
+    const user = req.user
+    console.log("sending a connection request")
+    res.send(user.firstName + " sending a connection Request");
 })
 
 
